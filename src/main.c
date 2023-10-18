@@ -25,6 +25,7 @@
 #include "logger.h"
 #include "squeue.h"
 #include "datalog.h"
+#include "data_forwarder.h"
 
 
 static void daemonize();
@@ -54,7 +55,7 @@ int main(int argc, char* argv[]) {
 
     if (config_file == NULL) {
         printf("Error: Missing config file. Use -c option to specify a config file.\n");
-        config_file = "../etc/config.cfg";
+        config_file = "../etc/dfconfig.cfg";
     }
 
     config_init(&cfg);
@@ -71,6 +72,7 @@ int main(int argc, char* argv[]) {
     }
 
     init_logger("logfile.log", 0);
+    data_forwarder_task_init(&cfg);
 
 
     while (1) {
@@ -79,6 +81,7 @@ int main(int argc, char* argv[]) {
 
     cleanup_logger();
     config_destroy(&cfg);
+    data_forwarder_task_cleanup();
 
     return 0;
 }

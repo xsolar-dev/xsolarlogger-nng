@@ -18,8 +18,8 @@ typedef struct {
 void init_queue(Queue* q, const char* q_name);
 int is_empty(Queue* q);
 int is_full(Queue* q);
-void enqueue(Queue* q, void* data);
-int dequeue(Queue* q, void** data);
-int wait_dequeue(Queue* q, void** data);
+void enqueue(Queue* q, void* data, int datalen);
+int dequeue(Queue* q, void** data, int *datalen);
+int wait_dequeue(Queue* q, void** data, int *datalen);
 
 #endif

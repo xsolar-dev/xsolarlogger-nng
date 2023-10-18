@@ -17,9 +17,11 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "mosquitto.h"
 #include "datalog.h"
 #include "error.h"
 #include "logger.h"
+#include "message.h"
 #include "mosq_sink.h"
 
 //FIXME
@@ -112,8 +114,8 @@ void* mosq_sink_task(void* arg)
     }
 
     // get queue 
-    Queue* q = (Queue*) cfg->q;
-    if (q == NULL)
+    BusReader* br = cfg->br;
+    if (br == NULL)
     {
         #ifdef DEBUG
         log_message(LOG_ERR, "Error queue...\n");
@@ -168,22 +170,27 @@ void* mosq_sink_task(void* arg)
 
     while (1) 
     {
-        struct Message* data;
-        if (0 != dequeue(q, (void**) &data))
+        struct Message* msg;
+        void* data;
+        int datalen;
+
+        if (0 != bus_read(br, (void**) &data, &datalen))
         {
-            #ifdef DEBUG
-            log_message(LOG_INFO, "%s\n", data->source_topic);
-            log_message(LOG_INFO, "%s\n", (char*) data->data);
+            if (datalen == sizeof(struct Message))
+            {
+                msg = (struct Message*) data;
 
-            #endif // DEBUG
+                #ifdef DEBUG
+                log_message(LOG_INFO, "%s\n", msg->source_topic);
+                log_message(LOG_INFO, "%s\n", (char*) msg->data);
+                #endif // DEBUG
 
-            // Publish to MQTT broker and topic
-            send_to_mqtt(mosq, data->source_topic, data->data, data->datalen);
+                // Publish to MQTT broker and topic
+                send_to_mqtt(mosq, msg->source_topic, msg->data, msg->datalen);
 
-        }
-        else
-        {
-            usleep(10000);
+                // free
+                free(data);
+            }
         }
     }
 
@@ -205,11 +212,12 @@ void* mosq_sink_task(void* arg)
  * @param password 
  * @return int 
  */
-int mosq_sink_init(mosq_sync_config* cfg, Queue* q, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
+int mosq_sink_init(mosq_sync_config* cfg, Bus* b, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
 {
     memset(cfg, 0, sizeof (mosq_sync_config));
 
-    cfg->q = q;
+    cfg->b = b;
+    create_bus_reader(&cfg->br, cfg->b);
 
     if (host != NULL)
         cfg->host = strdup(host);

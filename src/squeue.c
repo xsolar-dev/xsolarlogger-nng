@@ -100,16 +100,16 @@ int is_full(Queue* q) {
  * @param q 
  * @param data 
  */
-void enqueue(Queue* q, void* data) 
+void enqueue(Queue* q, void* data, int datalen) 
 {
     nng_msg *msg = NULL;
-    if (nng_msg_alloc(&msg, sizeof(struct Message)) != 0) 
+    if (nng_msg_alloc(&msg, datalen) != 0) 
     {
         log_message(LOG_ERR, "Error: nng_msg_alloc\n");
         return;
     }
 
-    memcpy(nng_msg_body(msg), data, sizeof(struct Message));
+    memcpy(nng_msg_body(msg), data, datalen);
 
     QueuePrivateData* priv = (QueuePrivateData*) q->data;
 
@@ -128,7 +128,7 @@ void enqueue(Queue* q, void* data)
  * @param data 
  * @return int 
  */
-int dequeue(Queue* q, void** data) 
+int dequeue(Queue* q, void** data, int* datalen) 
 {
     nng_msg *msg = NULL;
 
@@ -140,8 +140,9 @@ int dequeue(Queue* q, void** data)
         return 0;
     }
 
-    if (nng_msg_len(msg) == sizeof(struct Message)) 
+    if (nng_msg_len(msg) > 0) 
     {
+        *datalen = nng_msg_len(msg);
         *data = (void*)nng_msg_body(msg);
 
         return 1;
@@ -160,7 +161,7 @@ int dequeue(Queue* q, void** data)
  * @param data 
  * @return int 
  */
-int wait_dequeue(Queue* q, void** data) 
+int wait_dequeue(Queue* q, void** data, int* datalen) 
 {
-    return dequeue(q,data);
+    return dequeue(q,data, datalen);
 }

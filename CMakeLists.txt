@@ -7,7 +7,7 @@ option(REDIS "Redis sink support" OFF)
 option(NATS "NATS sink support" OFF)
 option(MOSQUITTO "mosquitto src-sink support" ON)
 option(PAHO "paho.mqtt.c src-sink support" OFF)
-option(INFLUXDB "influxdb sink support" OFF)
+option(INFLUXDB "influxdb sink support" ON)
 
 
 if(CROSS_COMPILE_ARM64)
@@ -27,11 +27,14 @@ include_directories(include)
 set(SOURCES 
     src/main.c
     src/datalog.c
+    src/message.c
     src/logger.c
     src/squeue.c    
+    src/sbus.c
     src/configuration.c
     src/list.c
     src/hashtable.c
+    src/data_forwarder.c
 )
 
 # List of header files
@@ -42,7 +45,7 @@ set(HEADERS
 )
 
 set(LINK_LIBRARIES
-    cjson config pthread)
+    cjson config pthread nng)
 
 if(KAFKA)
     message("KAFKA flag is defined.")

@@ -14,6 +14,7 @@
 #include "cjson/cJSON.h"
 #include "datalog.h"
 #include "error.h"
+#include "message.h"
 
 
 
@@ -141,66 +142,75 @@ static void convertToInfluxDBLine(struct DataLog* data, char* influxDBLine) {
 static void* influxdb_write_task(void* arg) 
 {
     influx_sink_config* cfg = (influx_sink_config*) arg;
-    Queue* q = (Queue*)cfg->q;
+
+    // get queue 
+    BusReader* br = cfg->br;
 
     char data[2048];
     while (1) 
     {        
-        int ret = dequeue(q, data);
+        struct Message* msg;
+        void* data;
+        int datalen;
 
-        if (ret == 0) 
+        if (0 != bus_read(br, (void**) &data, &datalen))
         {
-            usleep(10000);
-            continue;
-        }
-
-#ifdef DEBUG
-        printf("%s\n", data);
-#endif
-        
-        // Parse JSON with cJSON
-        cJSON* json = cJSON_Parse(data);
-        if (json) {
-
-            // parse to object
-            struct DataLog * logData = cJSON_GetDataLogValue(json);
-            if (logData)
+            if (datalen == sizeof(struct Message))
             {
-                char* jsonp = cJSON_PrintDataLog(logData);
+                msg = (struct Message*) data;
 
-                // DEBUG: 
-                printf("%s\n", jsonp);
+                #ifdef DEBUG
+                log_message(LOG_INFO, "%s\n", msg->source_topic);
+                log_message(LOG_INFO, "%s\n", (char*) msg->data);
+                #endif // DEBUG
+                
+                // Parse JSON with cJSON
+                cJSON* json = cJSON_Parse(msg->data);
+                if (json) {
 
-                // Convert data to InfluxDB format and send
-                char influxData[1024]; // Adjust size as needed
-                snprintf(influxData, sizeof(influxData), 
-                    "lxpvt v_pv_1=%f,p_pv_1=%ld,p_inv=%ld,p_to_user=%ld,e_to_user_day=%f,e_pv_all_1=%f,e_to_user_all=%f\n", 
-                    *logData->v_pv_1,
-                    *logData->p_pv_1,
-                    *logData->p_inv,
-                    *logData->p_to_user,
-                    *logData->e_to_user_day,
-                    *logData->e_pv_all_1,
-                    *logData->e_to_user_all
-                    // *logData->time * 1000000000ll
-                    );
+                    // parse to object
+                    struct DataLog * logData = cJSON_GetDataLogValue(json);
+                    if (logData)
+                    {
+                        char* jsonp = cJSON_PrintDataLog(logData);
 
-                // sendDataToInfluxDB(influxData);
-                sendDataToInfluxDBv2(cfg, influxData);
+                        // DEBUG: 
+                        printf("%s\n", jsonp);
 
-                char influxDataFull[1024*2];
-                convertToInfluxDBLine(logData, influxDataFull);
-                sendDataToInfluxDBv2(cfg, influxDataFull);
+                        // Convert data to InfluxDB format and send
+                        char influxData[1024]; // Adjust size as needed
+                        snprintf(influxData, sizeof(influxData), 
+                            "lxpvt v_pv_1=%f,p_pv_1=%ld,p_inv=%ld,p_to_user=%ld,e_to_user_day=%f,e_pv_all_1=%f,e_to_user_all=%f\n", 
+                            *logData->v_pv_1,
+                            *logData->p_pv_1,
+                            *logData->p_inv,
+                            *logData->p_to_user,
+                            *logData->e_to_user_day,
+                            *logData->e_pv_all_1,
+                            *logData->e_to_user_all
+                            // *logData->time * 1000000000ll
+                            );
 
-               
-                // free
-                cJSON_free(jsonp);
-                cJSON_DeleteDataLog(logData);
+                        // sendDataToInfluxDB(influxData);
+                        sendDataToInfluxDBv2(cfg, influxData);
+
+                        char influxDataFull[1024*2];
+                        convertToInfluxDBLine(logData, influxDataFull);
+                        sendDataToInfluxDBv2(cfg, influxDataFull);
+
+                    
+                        // free
+                        cJSON_free(jsonp);
+                        cJSON_DeleteDataLog(logData);
+                    }
+
+                } else {
+                    // LOG
+                    printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+                }
             }
 
-        } else {
-            // LOG
-            printf("Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+            free(data);
         }
     }
     
@@ -217,11 +227,12 @@ static void* influxdb_write_task(void* arg)
  * @param password 
  * @return int 
  */
-int influx_sink_init(influx_sink_config* cfg, Queue* q, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
+int influx_sink_init(influx_sink_config* cfg, Bus* b, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
 {
     memset(cfg, 0, sizeof (influx_sink_config));
 
-    cfg->q = q;
+    cfg->b = b;
+    create_bus_reader(&cfg->br, cfg->b);
 
     if (host != NULL)
         cfg->host = strdup(host);
@@ -258,11 +269,12 @@ int influx_sink_init(influx_sink_config* cfg, Queue* q, const char* host, int po
  * @param token 
  * @return int 
  */
-int influx_sink_init2(influx_sink_config* cfg, Queue* q, const char* url, const char* orgid, const char* token)
+int influx_sink_init2(influx_sink_config* cfg, Bus* b, const char* url, const char* orgid, const char* token)
 {
     memset(cfg, 0, sizeof (influx_sink_config));
 
-    cfg->q = q;
+    cfg->b = b;
+    create_bus_reader(&cfg->br, cfg->b);
 
     if (url != NULL)
         cfg->url = strdup(url);

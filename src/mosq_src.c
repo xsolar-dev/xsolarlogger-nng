@@ -16,7 +16,8 @@
 #include "mosq_src.h"
 #include "error.h"
 #include "logger.h"
-#include "squeue.h"
+#include "message.h"
+#include "sbus.h"
 #include "datalog.h"
 
 //FIXME
@@ -38,17 +39,19 @@ static void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto
     mosq_source_config* cfg = (mosq_source_config*) obj;
 
     int i = 0;
-    Queue *q = (Queue*) cfg->q;
+    BusWriter *bw = cfg->bw;
     
     #ifdef DEBUG
     // Assuming message is in JSON format
-    // printf("Received message %d: %s: %s\n",len, topicName, payloadptr);
+    printf("Received message %d: %s: %s\n", message->payloadlen, message->topic, message->payload);
     #endif // DEBUG     
 
     // create packet
     struct Message* msg = create_message(message->topic, NULL, message->payload, message->payloadlen);
-    enqueue(q, (void*) msg);
-    
+    bus_write(bw, (void*) msg, sizeof(struct Message));
+
+    // free
+    free(msg);    
 }
 
 /**
@@ -167,11 +170,12 @@ static void* mosq_source_reader_task(void* arg)
  * @param password 
  * @return int 
  */
-int mosq_source_init(mosq_source_config* cfg, Queue *q, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
+int mosq_source_init(mosq_source_config* cfg, Bus *b, const char* host, int port, const char* username, const char* password, const char* client_id, const char* topic)
 {
     memset(cfg, 0, sizeof (mosq_source_config));
 
-    cfg->q = q;
+    cfg->b = b;
+    create_bus_writer(&cfg->bw, cfg->b);
 
     if (host != NULL)
         cfg->host = strdup(host);
