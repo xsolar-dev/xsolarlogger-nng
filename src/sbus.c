@@ -135,7 +135,8 @@ int bus_read(BusReader* br, void** data, int* datalen)
         return EQUERR;
     }
 
-    if (nng_msg_len(msg) >= 0) 
+    int len = nng_msg_len(msg);
+    if (len >= 0) 
     {
         *datalen = nng_msg_len(msg);
         *data = (void*) malloc(nng_msg_len(msg));

@@ -153,7 +153,7 @@ static void* influxdb_write_task(void* arg)
         void* data;
         int datalen;
 
-        if (0 != bus_read(br, (void**) &data, &datalen))
+        if (0 == bus_read(br, (void**) &data, &datalen))
         {
             if (datalen == sizeof(struct Message))
             {
