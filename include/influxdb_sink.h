@@ -6,7 +6,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <curl/curl.h>
+
 
 #include "sbus.h"
 

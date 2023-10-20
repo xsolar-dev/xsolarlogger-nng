@@ -13,27 +13,25 @@
 #include "influxdb_sink.h"
 #include "cjson/cJSON.h"
 #include "datalog.h"
+#include "logger.h"
 #include "error.h"
 #include "message.h"
 
-
+#define NNG
 
 //FIXME
 extern char* strdup(const char*);
 
-// #define INFLUXDB_ADDRESS    "http://192.168.31.166:8086/write?db=lxp"
-// #define INFLUXDB2_ADDRESS   "http://103.161.39.186:8086/api/v2/write?org=5b2b5d425dabd4e0&bucket=lxpb"
-// #define INFLUXDB2_USERNAME  ""
-// #define INFLUXDB2_PASSWORD  ""
-// #define INFLUXDB2_ORG       "5b2b5d425dabd4e0"
-// #define INFLUXDB2_TOKEN     "1Ir9UfVc6xq2Tl8b2G_kn-79N13CeS6Vzr1XSR9SLIt-nktNUlticVYkMSn90aHWVacVy1xEtob8QlzxnJjrkQ=="
+#ifdef CURL
+#include <curl/curl.h>
 
 /**
  * @brief V1
  * 
  * @param data 
  */
-static void sendDataToInfluxDB(influx_sink_config* cfg, const char* data) {
+static void sendDataToInfluxDB(influx_sink_config* cfg, const char* data) 
+{
     CURL* curl;
     CURLcode res;
 
@@ -92,6 +90,99 @@ static void sendDataToInfluxDBv2(influx_sink_config* cfg, const char* data) {
 
     curl_global_cleanup();
 }
+#endif
+
+#ifdef NNG
+
+#include <nng/nng.h>
+#include <nng/supplemental/http/http.h>
+
+/**
+ * @brief send data to InfluxDB v2 using libnng
+ * 
+ * @param data 
+ */
+static void sendDataToInfluxDBv2(influx_sink_config* cfg, const char* data, int datalen) 
+{
+    nng_http_client *client = NULL;
+	nng_http_conn *  conn   = NULL;
+	nng_url *        url    = NULL;
+	nng_aio *        aio    = NULL;
+	nng_http_req *   req    = NULL;
+	nng_http_res *   res    = NULL;
+	int              rv;
+
+	if (((rv = nng_url_parse(&url, cfg->url)) != 0) ||
+	    ((rv = nng_http_client_alloc(&client, url)) != 0) ||
+	    ((rv = nng_http_req_alloc(&req, url)) != 0) ||
+	    ((rv = nng_http_res_alloc(&res)) != 0) ||
+	    ((rv = nng_aio_alloc(&aio, NULL, NULL)) != 0)) 
+	{
+		log_message(LOG_ERR, "init failed: %s\n", nng_strerror(rv));
+		goto out;
+	}
+
+	// Start connection process...
+	nng_aio_set_timeout(aio, 1000);
+	nng_http_client_connect(client, aio);
+
+	// Wait for it to finish.
+
+	nng_aio_wait(aio);
+	if ((rv = nng_aio_result(aio)) != 0) 
+	{
+		log_message(LOG_ERR, "Connect failed: %s", nng_strerror(rv));
+		nng_aio_finish(aio, rv);
+
+		goto out;
+	}
+
+	// Get the connection, at the 0th output.
+	conn = nng_aio_get_output(aio, 0);
+
+    char auth[512];
+    snprintf(auth, sizeof(auth), "Token %s", cfg->token);
+
+    nng_http_req_add_header(req, "Authorization", auth);
+	
+    
+
+	nng_http_req_set_method(req, "POST");
+	nng_http_req_set_data(req, data, datalen);
+	nng_http_conn_write_req(conn, req, aio);
+	nng_aio_set_timeout(aio, 1000);
+	nng_aio_wait(aio);
+
+	if ((rv = nng_aio_result(aio)) != 0) {
+		log_message(LOG_ERR, "Write req failed: %s", nng_strerror(rv));
+		nng_aio_finish(aio, rv);
+
+		goto out;
+	}
+
+out:
+	if (url) {
+		nng_url_free(url);
+	}
+	if (conn) {
+		nng_http_conn_close(conn);
+	}
+	if (client) {
+		nng_http_client_free(client);
+	}
+	if (req) {
+		nng_http_req_free(req);
+	}
+	if (res) {
+		nng_http_res_free(res);
+	}
+	if (aio) {
+		nng_aio_free(aio);
+	}
+}
+
+#endif
+
 
 /**
  * @brief Datalog to influxDB line format 
@@ -192,11 +283,11 @@ static void* influxdb_write_task(void* arg)
                             );
 
                         // sendDataToInfluxDB(influxData);
-                        sendDataToInfluxDBv2(cfg, influxData);
+                        sendDataToInfluxDBv2(cfg, influxData, strlen(influxData));
 
                         char influxDataFull[1024*2];
                         convertToInfluxDBLine(logData, influxDataFull);
-                        sendDataToInfluxDBv2(cfg, influxDataFull);
+                        sendDataToInfluxDBv2(cfg, influxDataFull, strlen(influxDataFull));
 
                     
                         // free
