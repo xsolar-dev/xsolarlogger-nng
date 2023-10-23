@@ -109,9 +109,13 @@ int bus_write(BusWriter* bw, void* data, int datalen)
     if (nng_sendmsg(priv->bus_socket, msg, 0) != 0) 
     {
         log_message(LOG_ERR, "Error: nng_sendmsg\n");
+
+        nng_msg_free(msg);
+
         return EQUERR;
     }
 
+    nng_msg_free(msg);
     return 0;
 }
 
@@ -149,11 +153,16 @@ int bus_read(BusReader* br, void** data, int* datalen)
 
         memcpy(*data, nng_msg_body(msg), nng_msg_len(msg));
 
+        nng_msg_free(msg);
+
         return 0;
     } 
     else 
     {
         log_message(LOG_ERR, "Received message with incorrect size\n");
+
+        nng_msg_free(msg);
+
         return EQUERR;
     }
 
