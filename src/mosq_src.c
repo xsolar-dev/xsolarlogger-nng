@@ -43,7 +43,7 @@ static void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto
     
     #ifdef DEBUG
     // Assuming message is in JSON format
-    printf("Received message %d: %s: %s\n", message->payloadlen, message->topic, message->payload);
+    // printf("Received message %d: %s: %s\n", message->payloadlen, message->topic, message->payload);
     #endif // DEBUG     
 
     // create packet

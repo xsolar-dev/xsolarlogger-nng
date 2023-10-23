@@ -251,8 +251,8 @@ static void* influxdb_write_task(void* arg)
                 msg = (struct Message*) data;
 
                 #ifdef DEBUG
-                log_message(LOG_INFO, "%s\n", msg->source_topic);
-                log_message(LOG_INFO, "%s\n", (char*) msg->data);
+                // log_message(LOG_INFO, "%s\n", msg->source_topic);
+                // log_message(LOG_INFO, "%s\n", (char*) msg->data);
                 #endif // DEBUG
                 
                 // Parse JSON with cJSON
@@ -266,7 +266,7 @@ static void* influxdb_write_task(void* arg)
                         char* jsonp = cJSON_PrintDataLog(logData);
 
                         // DEBUG: 
-                        printf("%s\n", jsonp);
+                        // printf("%s\n", jsonp);
 
                         // Convert data to InfluxDB format and send
                         char influxData[1024]; // Adjust size as needed

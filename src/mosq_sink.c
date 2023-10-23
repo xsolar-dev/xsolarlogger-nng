@@ -92,6 +92,8 @@ static int send_to_mqtt(struct mosquitto *mosq, const char* topic, void* message
         log_message(LOG_ERR, "Unable to publish (%d): %s\n", rc, mosquitto_strerror(rc));
     }
 
+    log_message(LOG_INFO, "send ok to server\n");
+
     return rc;
 }
 
@@ -181,8 +183,8 @@ void* mosq_sink_task(void* arg)
                 msg = (struct Message*) data;
 
                 #ifdef DEBUG
-                log_message(LOG_INFO, "%s\n", msg->source_topic);
-                log_message(LOG_INFO, "%s\n", (char*) msg->data);
+                // log_message(LOG_INFO, "%s\n", msg->source_topic);
+                // log_message(LOG_INFO, "%s\n", (char*) msg->data);
                 #endif // DEBUG
 
                 // Publish to MQTT broker and topic
