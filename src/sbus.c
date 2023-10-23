@@ -115,7 +115,8 @@ int bus_write(BusWriter* bw, void* data, int datalen)
         return EQUERR;
     }
 
-    nng_msg_free(msg);
+    //sendok: nng_msg_free(msg);
+    
     return 0;
 }
 
