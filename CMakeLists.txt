@@ -1,7 +1,7 @@
 # Minimum required version of CMake
 cmake_minimum_required(VERSION 3.0)
 
-option(CROSS_COMPILE_ARM64 "Cross compile for ARM64" ON)
+option(CROSS_COMPILE_ARM64 "Cross compile for ARM64" OFF)
 option(KAFKA "Kafka sink support" OFF)
 option(REDIS "Redis sink support" OFF)
 option(NATS "NATS sink support" OFF)
@@ -106,5 +106,4 @@ endif()
 
 # Create an executable from the sources
 add_executable(xsolarlogger ${SOURCES} ${HEADERS})
-target_link_options(xsolarlogger PUBLIC "LINKER:-rpath-link")
 target_link_libraries(xsolarlogger PUBLIC ${LINK_LIBRARIES})
